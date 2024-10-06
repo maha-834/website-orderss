@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ar">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> بياتو  - طلب الطعام</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            background-color: #2d0c2e;
+            padding: 15px 0;
+            color: white;
+            text-align: center;
+        }
+
+        header nav a {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+            font-size: 18px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .form-section,
+        .orders-section,
+        .confirmation-section {
+            background-color: #f7f7f7;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .cart-summary {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-top: 2px solid #e7e7e7;
+        }
+
+        .input-count {
+            width: 50px;
+            margin-right: 10px;
+        }
+
+        .invoice-table th,
+        .invoice-table td {
+            text-align: center;
+        }
+
+        footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            padding: 10px 20px;
+            background-color: #521b68;
+            color: white;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .confirmation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .confirmation-modal.active {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .confirmation-modal .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .product-card {
+            margin-bottom: 15px;
+        }
+
+        .stars {
+            color: gold;
+        }
+
+        .filter-box {
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .filter-box input {
+            width: 48%; /* ضبط عرض العناصر */
+        }
+
+        .range-label {
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header>
+        <h1> بياتولا للطعام الايطالي</h1>
+        <nav>
+            <a href="#home" onclick="loadPage('home')">قائمة الطعام </a>
+            <a href="#account" onclick="loadPage('account')">الحساب </a>
+            <a href="#cart" onclick="loadPage('cart')">سلة التسوق</a>
+        </nav>
+    </header>
+
+    <!-- المحتوى -->
+    <div id="content" class="container mt-3"></div>
+
+    <!-- Confirmation Modal -->
+    <div class="confirmation-modal" id="confirmation-modal">
+        <div class="modal-content">
+            <h3>تم تأكيد طلبك!</h3>
+            <p>شكراً على طلبك. سيتم توصيله خلال 45 دقيقة من الآن.</p>
+            <button class="btn btn-success" onclick="closeConfirmationModal()">موافق</button>
+        </div>
+    </div>
+
+    <script>
+        let totalPrice = 0;
+        let products = [];
+        let cart = [];
+        let customerInfo = null;
+        let orderHistory = [];
+
+        // قائمة المنتجات
+        const italianDishes = [
+
+        { title: "بيتزا مارغريتا", description: "بيتزا تقليدية مع صلصة الطماطم والجبن.", price: 25, image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Eq_it-na_pizza-margherita_sep2005_sml.jpg/390px-Eq_it-na_pizza-margherita_sep2005_sml.jpg", rating: 4 },
+                { title: "باستا بولونيز", description: "معكرونة مع صلصة اللحم الغنية.", price: 30, image: "https://kitchen.sayidaty.net/uploads/small/48/4877a62611e698282a12a01f03c67104_w750_h750.jpg", rating: 5 },
+                
+                { title: "لازانيا", description: "طبقات من المعكرونة مع اللحم والجبن.", price: 35, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR3UXwUux73xCgC1gX234YPULRYjcyiyrswgg&s" , rating: 4 },
+                { title: "كابريس سلاطة", description: "سلطة طازجة من الطماطم والجبن موزاريلا.", price: 20, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYes4BAP6WMov1v4naKT0L4oA0YsT-ON9Glw&s", rating: 3 },
+                { title: "تيبولي", description: "سلطة البرغل مع البقدونس والطماطم.", price: 15, image: "https://lh4.googleusercontent.com/proxy/wJGGiXjZ--FagtSTyqrZti2nVjhBJ9_yzyYxg50XKL5fgXU6sKtmabe0hL2QRlkcnpLFPhW9EMdbA9etRWIjBLmkDxsA4HoUBoq85eesV7ehv9kfB0ki0XK7l7BmxmqYNsclUg2zVkAvPrpIyAoFftwB", rating: 4 },
+                { title: "جلازيو", description: "مثلجات إيطالية لذيذة.", price: 10, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRJtbXBs3_P12Wv_YN_V3Mxc3Vz7z_xXSSIsQ&s", rating: 5 },
+                { title: "سباغيتي أليو أوليو", description: "سباغيتي مع زيت الزيتون والثوم.", price: 22, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRp78FCRcKBAXixEDQ90GlMNGLSSEUUMBYGg&s", rating: 4 },
+                { title: "تيراميسو", description: "حلوى إيطالية شهية مع القهوة والجبن ماسكربون.", price: 18, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSHFkkOykdIRtWr5EhcuC0o_FMscg5lywysQQ&s", rating: 5 },
+                { title: "حساء ", description: "حساء بالبطاطس واللحم ", price: 12, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0FliDAiF90DKPhwRk94MoZZK_9kcMNnhusg&s", rating: 5 },
+                { title: "كوسة محشوة", description: "كوسة محشوة بالأرز واللحم.", price: 30, image: "https://www.optifast-me.com/sites/default/files/2024-04/Mehshe%20koussa%20tabboule_Healthy%20Detail%20Page.jpg", rating: 4 },
+                { title: "باستا بستو", description: "معكرونة مع صلصة البيستو العطرية.", price: 27, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYHUNJT9MRMhPnk7N1hy49ARc2ZYR6flEOXw&s", rating: 4 },
+                { title: "نيوكي", description: "كرات البطاطس الإيطالية.", price: 29, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT1iQR8cL9t8bf4D5wWhSH6uyXde7M_OfMUAA&s", rating: 4 },
+                { title: "سباغيتي كاربونارا", description: "سباغيتي مع صلصة البيض ولحم العجل المقدد.", price: 32, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQJfclP1oTwhZX-qSvMOuSLG7AwDK9dKLKTSA&s", rating: 5 },
+                { title: "بروشيتي", description: "خبز محمص مع الطماطم والثوم.", price: 15, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS3FnZL5DtFrcN7SKGZ4Gbr8--0xPKR5VIRuA&s", rating: 3 },
+                { title: "رافيولي بلحم العجل", description: "رافيولي محشي بلحم العجل.", price: 28, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQG1xcz1r_iHpfrcvW6NFQ8ZWFv58ojPV3JPA&s", rating: 4 },
+                { title: "سالا ميلا", description: "لحم مجفف مع التوابل.", price: 20, image: "https://modo3.com/thumbs/fit630x300/172170/1493292246/%D8%B7%D8%B1%D9%8A%D9%82%D8%A9_%D8%B9%D9%85%D9%84_%D8%A7%D9%84%D9%84%D8%AD%D9%85%D8%A9_%D9%81%D9%8A_%D8%A7%D9%84%D9%81%D8%B1%D9%86.jpg", rating: 4 },
+                { title: "تارت توت", description: "تارت محشي بالتوت الطازج.", price: 18, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRcsrU5QbL5zaxYdOCoOYrqUk9IjrZJuOvmGA&s", rating: 5 },
+                { title: "فريتاتا", description: "عجة إيطالية مع الخضار والجبن.", price: 22, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKRO8zm51rWYI3EW2-Ye8iRYuYay9HhSwdtw&s", rating: 4 },
+                { title: "بيتزا خضار ", description: "بيتزا مع مجموعة متنوعة من الخضروات الطازجة " ,  price: 24, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQOf0u4zJdMbJ_ZLB3qUsvXwqs2m8G5hs3DTg&s", rating: 4 },
+                { title: "بيتزا الفريدو " ,   description: "بيتزا المغطاة بالصلصة المميزة بالاجبان " ,  price: 15, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaEO74JeQW4-LHyeRE4SI3C1cqEyB9UmRcsA&s", rating: 3 },
+
+
+
+
+        ];
+
+        function loadPage(page) {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = ''; // تفريغ المحتوى الحالي
+            if (page === 'home') {
+                displayMenu();
+            } else if (page === 'account') {
+                displayAccount();
+            } else if (page === 'cart') {
+                displayCartItems();
+            }
+        }
+
+        function displayMenu() {
+            const contentDiv = document.getElementById('content');
+
+            // إضافة صندوق البحث والتصفية
+            const filterBox = document.createElement('div');
+            filterBox.classList.add('filter-box');
+            filterBox.innerHTML = `
+                <input type="text" id="searchInput" class="form-control" placeholder="ابحث عن منتج" oninput="filterProducts()" />
+                <input type="range" id="priceRange" class="form-range" min="0" max="50" value="50" oninput="filterProducts()" />
+                <div class="range-label">
+                    <span>0 ريال</span>
+                    <span>50 ريال</span>
+                </div>
+            `;
+            contentDiv.appendChild(filterBox);
+
+            const section = document.createElement('div');
+            section.classList.add('form-section');
+            section.innerHTML = '<h2>قائمة الطعام</h2>';
+
+            italianDishes.forEach(dish => {
+                const productCard = createProductCard(dish);
+                section.appendChild(productCard);
+            });
+
+            contentDiv.appendChild(section);
+        }
+
+        function createProductCard(dish) {
+            const productCard = document.createElement('div');
+            productCard.classList.add('product-card', 'card', 'mb-3');
+            productCard.innerHTML = `
+                <div class="row g-0">
+                    <div class="col-md-4">
+                        <img src="${dish.image}" class="img-fluid rounded-start" alt="${dish.title}">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-body">
+                            <h5 class="card-title">${dish.title}</h5>
+                            <p class="card-text">${dish.description}</p>
+                            <p class="card-text">سعر: ${dish.price} ريال</p>
+                            <p class="stars">تقييم: ${'★'.repeat(dish.rating)}${'☆'.repeat(5 - dish.rating)}</p>
+                            <button class="btn btn-primary" onclick="addToCart('${dish.title}', ${dish.price})">أضف إلى السلة</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return productCard;
+        }
+
+        function filterProducts() {
+            const searchInput = document.getElementById('searchInput').value.toLowerCase();
+            const priceRange = document.getElementById('priceRange').value;
+
+            const filteredDishes = italianDishes.filter(dish => {
+                const matchesSearch = dish.title.toLowerCase().includes(searchInput);
+                const matchesPrice = dish.price <= priceRange;
+                return matchesSearch && matchesPrice;
+            });
+
+            const section = document.querySelector('.form-section');
+            section.innerHTML = '<h2>قائمة الطعام</h2>'; // إعادة تعيين المحتوى
+
+            filteredDishes.forEach(dish => {
+                const productCard = createProductCard(dish);
+                section.appendChild(productCard);
+            });
+        }
+
+        function addToCart(title, price) {
+            cart.push({ title, price, time: new Date().toLocaleString(), status: 'جديد' });
+            totalPrice += price;
+            alert(`${title} تم إضافته إلى السلة!`);
+        }
+
+        function displayAccount() {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = `
+                <div class="form-section">
+                    <h2>حسابي</h2>
+                    <form onsubmit="submitAccountInfo(event)">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">الاسم</label>
+                            <input type="text" class="form-control" id="name" value="${customerInfo ? customerInfo.name : ''}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">رقم الهاتف</label>
+                            <input type="tel" class="form-control" id="phone" value="${customerInfo ? customerInfo.phone : ''}" required>
+
+
+<div class="mb-3">
+                            <label for="name" class="form-label">العنوان </label>
+                            <input type="text" class="form-control" id="location" value="${customerInfo ? customerInfo.name : ''}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">  رقم البطاقة</label>
+                            <input type="tel" class="form-control" id="num" value="${customerInfo ? customerInfo.phone : ''}" required>
+
+
+
+
+
+                        </div>
+                        <button type="submit" class="btn btn-primary">تحديث المعلومات</button>
+                    </form>
+                </div>
+                <div class="form-section">
+                    <h2>طلباتي</h2>
+                    <table class="table table-bordered invoice-table">
+                        <thead>
+                            <tr>
+                                <th>الطلب</th>
+                                <th>الوقت</th>
+                                <th>السعر</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${orderHistory.length === 0 ? '<tr><td colspan="4">لا توجد طلبات.</td></tr>' : ''}
+                            ${orderHistory.map(order => `
+                                <tr>
+                                    <td>${order.items.map(item => item.title).join(', ')}</td>
+                                    <td>${order.time}</td>
+                                    <td>${order.total} ريال</td>
+                                    <td>${order.status}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function submitAccountInfo(event) {
+            event.preventDefault();
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
+            customerInfo = { name, phone };
+            alert('تم تحديث المعلومات بنجاح!');
+        }
+
+        function displayCartItems() {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = `
+                <div class="form-section">
+                    <h2>سلة التسوق</h2>
+                    ${cart.length === 0 ? '<p>لا توجد عناصر في السلة.</p>' : ''}
+                    <div class="orders-section">
+                        ${cart.map(item => `<p>${item.title} - ${item.price} ريال</p>`).join('')}
+                    </div>
+                    <div class="cart-summary">
+                        <strong>الإجمالي:</strong>
+                        <span>${totalPrice} ريال</span>
+                    </div>
+                    <button class="btn btn-success" onclick="confirmOrder()">تأكيد الطلب</button>
+                </div>
+            `;
+        }
+
+        function confirmOrder() {
+            if (cart.length === 0) {
+                alert('السلة فارغة!');
+                return;
+            }
+            if (!customerInfo) {
+                alert('يرجى تحديث معلومات حسابك قبل تأكيد الطلب.');
+                return;
+            }
+            // إضافة الطلب إلى تاريخ الطلبات وتحديث الحالة
+            orderHistory.push({ items: cart, total: totalPrice, time: new Date().toLocaleString(), status: 'تحت التنفيذ' });
+            cart = [];
+            totalPrice = 0;
+            document.getElementById('confirmation-modal').classList.add('active');
+        }
+
+        function closeConfirmationModal() {
+            document.getElementById('confirmation-modal').classList.remove('active');
+            loadPage('home');
+        }
+
+        // عند تحميل الصفحة، نقوم بتحميل صفحة القائمة مباشرة
+        window.onload = function () {
+            loadPage('home'); // تحميل صفحة القائمة عند بدء التطبيق
+        };
+    </script>
+
+
+
+
+</body>
+
+</html>
